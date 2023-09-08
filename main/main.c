@@ -13,6 +13,7 @@
 
 #include "wifi.h"
 #include "tcp_client.h"
+#include "control.h"
 
 void getLineInput(char buf[], size_t len)
 {
@@ -88,7 +89,11 @@ void app_main(void)
 
     wifi_init();
 
-    tcp_client();
+    
+
+    //tcp_client();
+
+    xTaskCreate( control_loop, "control_loop", 4096, NULL, 5, NULL );
 
     while(true){
        char buf[32];
@@ -100,7 +105,7 @@ void app_main(void)
             esp_restart();
 
         } else if( len>0){
-        tcp_client();
+            xTaskCreate(tcp_client, "tcp_client", 4096, NULL, 5, NULL);
         }
     }
 }

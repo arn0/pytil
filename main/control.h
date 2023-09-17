@@ -1,1 +1,1 @@
-void control_loop(void);
+void control_loop(void *p);

@@ -4,6 +4,7 @@
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
 #include "esp_err.h"
+#include "esp_log.h"
 #include "esp_netif.h"
 #include "nvs_flash.h"
 
@@ -12,8 +13,12 @@
 #include "esp_flash.h"
 
 #include "wifi.h"
+#include "scan.h"
 #include "tcp_client.h"
 #include "control.h"
+
+static const char *TAG = "main";
+
 
 void getLineInput(char buf[], size_t len)
 {
@@ -51,8 +56,10 @@ void getLineInput(char buf[], size_t len)
         } 
 }
 
-void app_main(void)
-{
+void app_main( void ){
+
+    uint8_t status = 0;
+
     /* Print chip information */
     esp_chip_info_t chip_info;
     uint32_t flash_size;
@@ -87,25 +94,74 @@ void app_main(void)
     }
     ESP_ERROR_CHECK(ret);
 
-    wifi_init();
+    //wifi_init();
 
     
 
     //tcp_client();
 
-    xTaskCreate( control_loop, "control_loop", 4096, NULL, 5, NULL );
+    //xTaskCreate( control_loop, "control_loop", 4096, NULL, 5, NULL );
 
-    while(true){
-       char buf[32];
-        size_t len = 32;
- 
-        getLineInput(buf, len);
+#define WIFI_INIT_OK BIT0
+#define WIFI_AP_FOUND BIT1
+#define WIFI_CONNECTED BIT2
+#define TCP_CONNECTED BIT3
+#define SERVO_CONNECTED BIT4
 
-        if(len>0 && buf[0]== 'r'){
-            esp_restart();
+    // main loop
+    // here we make sure all that is needed is kept alive
+    // ontherwise we perserve energy and sleep while waiting
+    
+    while( true ){
+    //    char buf[32];
+    //    size_t len = 32;
 
-        } else if( len>0){
-            xTaskCreate(tcp_client, "tcp_client", 4096, NULL, 5, NULL);
+        ESP_LOGI(TAG, "Start main loop, status = %x", status);
+        if( !( status & WIFI_INIT_OK )){
+            ESP_LOGI(TAG, "Need wifi_init(), status = %x", status);
+            if( wifi_init() ){
+                status |= WIFI_INIT_OK;
+            }
+            ESP_LOGI(TAG, "Did wifi_init(), status = %x", status);
+            // Need to wait for wifi to start up ???
+            //vTaskDelay( 4000 );
         }
+        else if( !( status & WIFI_AP_FOUND ) ){
+            ESP_LOGI(TAG, "Need wifi_scan(), status = %x", status);
+            if( wifi_scan() ){
+                status |= WIFI_AP_FOUND;
+                ESP_LOGI(TAG, "WIFI_AP_FOUND, status = %x", status);
+            }
+            else {
+                // lets save some energy and go to sleep
+                ESP_LOGI(TAG, "Want to go to sleep, status = %x", status);
+            }
+        }
+        else if( !( status & WIFI_CONNECTED ) ){
+            ESP_LOGI(TAG, "Need wifi_connect(), status = %x", status);
+            if( wifi_connect() ){
+                status |= WIFI_CONNECTED;
+                ESP_LOGI(TAG, "WIFI_CONNECTED, status = %x", status);
+            }
+        }
+        else if( !( status & TCP_CONNECTED ) ){
+            ESP_LOGI(TAG, "Need tcp_client(), status = %x", status);
+            tcp_client();
+        }
+
+
+
+
+
+
+        //getLineInput(buf, len);
+
+        //if(len>0 && buf[0]== 'r'){
+        //    esp_restart();
+
+        //} else if( len>0){
+            //xTaskCreate(tcp_client, "tcp_client", 4096, NULL, 5, NULL);
+        //}
+        //ESP_LOGI(TAG, "loop, status = %x", status);
     }
 }

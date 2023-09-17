@@ -50,8 +50,11 @@ struct struct_control_settings { unsigned int low_current;
 
 
 uint16_t flags = 0;
-pypi_packet packet;
 struct struct_control_settings control_settings;
+uint8_t out_sync_b = 0, out_sync_pos = 0;
+uint8_t low_current = 1;
+
+
 
 void stop( void ){}
 
@@ -157,13 +160,84 @@ void process_packet( pypi_packet packet )
     }
 }
 
+void send_loop()
+{
+        pypi_packet packet;
 
-void control_loop(void){
+
+        //  flags C R V C R ct C R mt flags  C  R  V  C  R EE  C  R mct flags  C  R  V  C  R  EE  C  R rr flags  C  R  V  C  R EE  C  R cc  C  R vc
+        //  0     1 2 3 4 5  6 7 8  9    10 11 12 13 14 15 16 17 18  19    20 21 22 23 24 25  26 27 28 29    30 31 32 33 34 35 36 37 38 39 40 41 42
+        
+        // fla FLAGS_CODE flags
+        // C   CURRENT_CODE
+        // R   RUDDER_SENSE_CODE
+        // V   VOLTAGE_CODE
+        // ct  CONTROLLER_TEMP_CODE
+        // mt  MOTOR_TEMP_CODE
+        // EE  EEPROM_VALUE_CODE
+        // mct -
+        // rr  -
+        // cc  -
+        // vc  -
+
+        //CURRENT_CODE=0x1c
+        //VOLTAGE_CODE=0xb3
+        //CONTROLLER_TEMP_CODE=0xf9
+        //MOTOR_TEMP_CODE=0x48
+        //RUDDER_SENSE_CODE=0xa7
+        //FLAGS_CODE=0x8f
+        //EEPROM_VALUE_CODE=0x9a
+
+        
+    switch(out_sync_pos++) {
+    case 0: case 10: case 20: case 30:
+        if(!low_current)
+            flags |= CURRENT_RANGE;
+
+        packet.p.value = flags;
+        flags &= ~REBOOTED;
+        packet.p.command = FLAGS_CODE;
+        break;
+    case 1: case 4: case 7: case 11: case 14: case 17: case 21: case 24: case 27: case 31: case 34: case 37: case 40:
+        packet.p.value = 1000;
+        packet.p.command = CURRENT_CODE;
+        break;
+    case 2: case 5: case 8: case 12: case 15: case 18: case 22: case 25: case 28: case 32: case 35: case 38: case 41:
+        packet.p.value = 1000;
+        packet.p.command = RUDDER_SENSE_CODE;
+        break;
+    case 3: case 13: case 23: case 33:
+        packet.p.value = 1200;
+        packet.p.command = VOLTAGE_CODE;
+        break;
+    case 6:
+        packet.p.value = 6600;
+        packet.p.command = CONTROLLER_TEMP_CODE;
+        break;
+    case 9:
+        packet.p.value = 4200; // 1200 = 12C
+        packet.p.command = MOTOR_TEMP_CODE;
+        break;
+    case 16: case 26: case 36: /* eeprom reads */
+        break;
+    default:
+        break;
+    }
+    pypi_put_tx_packet( packet );
+}
+
+void control_loop(void *p){
+    pypi_packet packet;
 
     control_settings.low_current = 2000;
 
-    if( pypi_get_tx_packet( &packet ) ){
-        process_packet( packet );
+    send_loop();
+
+    while(true){
+        if( pypi_get_rx_packet( &packet ) ){
+            process_packet( packet );
+            send_loop();
+        }
     }
     vTaskDelete(NULL);
 }

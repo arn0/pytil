@@ -200,6 +200,20 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
     }
 }
 
+
+/*
+Wi-Fi NVS Flash
+
+If the Wi-Fi NVS flash is enabled, all Wi-Fi configurations set via the Wi-Fi APIs will be stored into flash, and the Wi-Fi driver will
+start up with these configurations the next time it powers on/reboots. However, the application can choose to disable the Wi-Fi NVS flash
+if it does not need to store the configurations into persistent memory, or has its own persistent storage, or simply due to debugging reasons, etc.
+*/
+
+
+
+
+
+
 /* Initialize Wi-Fi as sta */
 
 //esp_event_handler_instance_t instance_start;
@@ -230,12 +244,28 @@ bool wifi_init(void)
 
     esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
     assert( sta_netif ); // find out why this is usefull
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    
-    if( esp_wifi_init( &cfg ) != ESP_OK ) return( false );
-    if( esp_wifi_set_mode( WIFI_MODE_STA ) != ESP_OK ) return( false );
 
-    return( true );
+    wifi_config_t conf;
+    esp_err_t ret;
+    ret = esp_wifi_get_config( ESP_IF_WIFI_STA, &conf );
+    if( ( ret == ESP_OK ) && strcmp( (char *) conf.sta.ssid, SECRET_SSID ) ) {
+        ESP_LOGI(TAG, "Wifi configuration already stored in flash partition called NVS");
+        ESP_LOGI(TAG, "%s" ,conf.sta.ssid);
+        ESP_LOGI(TAG, "%s" ,conf.sta.password);
+        return( true );
+    }
+    else
+    {
+        ESP_LOGI(TAG, "Wifi configuration not found in flash partition called NVS.");    
+
+        wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    
+        if( esp_wifi_init( &cfg ) != ESP_OK ) return( false );
+        if( esp_wifi_set_mode( WIFI_MODE_STA ) != ESP_OK ) return( false );
+
+        return( true );
+    }
+    return( false );
 }
 
 /* Initialize Wi-Fi as sta and set scan method */

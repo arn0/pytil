@@ -12,9 +12,7 @@
 #include "pypi_comm.h"
 
 
-#define HOST_IP_ADDR RPI_IP
-#define PORT RPI_PORT
-
+volatile int sock = -1;
 
 static const char *TAG = "tcp_client():";
 
@@ -22,7 +20,7 @@ static const char *TAG = "tcp_client():";
 void tcp_client(void)
 {
     char rx_buffer[128];
-    char host_ip[] = HOST_IP_ADDR;
+    char host_ip[] = SECRET_IP;
     int addr_family = 0;
     int ip_protocol = 0;
     pypi_packet packet;
@@ -32,7 +30,7 @@ void tcp_client(void)
         struct sockaddr_in dest_addr;
         inet_pton(AF_INET, host_ip, &dest_addr.sin_addr);
         dest_addr.sin_family = AF_INET;
-        dest_addr.sin_port = htons(PORT);
+        dest_addr.sin_port = htons(SECRET_PORT);
         addr_family = AF_INET;
         ip_protocol = IPPROTO_IP;
     
@@ -41,7 +39,7 @@ void tcp_client(void)
             ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
             break;
         }
-        ESP_LOGI(TAG, "Socket created, connecting to %s:%d", host_ip, PORT);
+        ESP_LOGI(TAG, "Socket created, connecting to %d.%d.%d.%d:%d", host_ip[0], host_ip[1], host_ip[2], host_ip[3], SECRET_PORT);
 
         int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
         if (err != 0) {
@@ -88,4 +86,28 @@ void tcp_client(void)
         }
     }
     vTaskDelete(NULL);
+}
+
+bool tcp_open( void ) {
+    char host_ip[] = SECRET_IP;
+
+    struct sockaddr_in dest_addr;
+    inet_pton( AF_INET, host_ip, &dest_addr.sin_addr );
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons( SECRET_PORT );
+
+    sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+
+    if (sock < 0) {
+        ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
+        return( false );
+    }
+    ESP_LOGI(TAG, "Socket created (%d), connecting to %d.%d.%d.%d:%d", sock, host_ip[0], host_ip[1], host_ip[2], host_ip[3], SECRET_PORT);
+    int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+    if (err != 0) {
+        ESP_LOGE(TAG, "Socket unable to connect: errno %d", errno);
+        return( false );
+    }
+    ESP_LOGI(TAG, "Successfully connected");
+    return( true );
 }

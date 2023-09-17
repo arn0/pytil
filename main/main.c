@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -8,7 +9,6 @@
 #include "esp_netif.h"
 #include "nvs_flash.h"
 
-#include <inttypes.h>
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 
@@ -94,8 +94,14 @@ void app_main( void ){
     }
     ESP_ERROR_CHECK(ret);
 
+/*
+Wi-Fi NVS Flash
 
-    
+If the Wi-Fi NVS flash is enabled, all Wi-Fi configurations set via the Wi-Fi APIs will be stored into flash, and the Wi-Fi driver will
+start up with these configurations the next time it powers on/reboots. However, the application can choose to disable the Wi-Fi NVS flash
+if it does not need to store the configurations into persistent memory, or has its own persistent storage, or simply due to debugging reasons, etc.
+*/
+
 
 
     //xTaskCreate( control_loop, "control_loop", 4096, NULL, 5, NULL );
@@ -126,6 +132,7 @@ void app_main( void ){
         }
         else if( !( status & WIFI_AP_FOUND ) ){
             ESP_LOGI(TAG, "Need wifi_scan(), status = %x", status);
+            esp_log_level_set( "*", ESP_LOG_INFO );
             if( wifi_scan() ){
                 status |= WIFI_AP_FOUND;
                 ESP_LOGI(TAG, "WIFI_AP_FOUND, status = %x", status);
@@ -144,7 +151,7 @@ void app_main( void ){
         }
         else if( !( status & TCP_CONNECTED ) ){
             ESP_LOGI(TAG, "Need tcp_client(), status = %x", status);
-            tcp_client();
+            tcp_open();
         }
 
 

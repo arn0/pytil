@@ -4,7 +4,8 @@
     "esp_log.h": "c",
     "esp_netif.h": "c",
     "cstring": "c",
-    "*.inc": "c"
+    "*.inc": "c",
+    "typeinfo": "c"
   },
   "idf.flashType": "UART",
   "idf.port": "/dev/cu.usbserial-0001",

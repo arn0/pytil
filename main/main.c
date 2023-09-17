@@ -19,42 +19,6 @@
 static const char *TAG = "main";
 
 
-void getLineInput(char buf[], size_t len)
-{
-    memset(buf, 0, len);
-    fpurge(stdin); //clears any junk in stdin
-    char *bufp;
-    bufp = buf;
-    while(true)
-        {
-            vTaskDelay(100);
-            *bufp = getchar();
-            if(*bufp != '\0' && *bufp != 0xFF && *bufp != '\r') //ignores null input, 0xFF, CR in CRLF
-            {
-                //'enter' (EOL) handler 
-                if(*bufp == '\n'){
-                    *bufp = '\0';
-                    break;
-                } //backspace handler
-                else if (*bufp == '\b'){
-                    if(bufp-buf >= 1)
-                        bufp--;
-                }
-                else{
-                    //pointer to next character
-                    bufp++;
-                }
-            }
-            
-            //only accept len-1 characters, (len) character being null terminator.
-            if(bufp-buf > (len)-2){
-                bufp = buf + (len -1);
-                *bufp = '\0';
-                break;
-            }
-        } 
-}
-
 void app_main( void ){
 
     uint8_t status = 0;
@@ -153,20 +117,5 @@ if it does not need to store the configurations into persistent memory, or has i
             ESP_LOGI(TAG, "Need tcp_client(), status = %x", status);
             tcp_open();
         }
-
-
-
-
-
-
-        //getLineInput(buf, len);
-
-        //if(len>0 && buf[0]== 'r'){
-        //    esp_restart();
-
-        //} else if( len>0){
-            //xTaskCreate(tcp_client, "tcp_client", 4096, NULL, 5, NULL);
-        //}
-        //ESP_LOGI(TAG, "loop, status = %x", status);
     }
 }

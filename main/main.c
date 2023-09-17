@@ -13,7 +13,6 @@
 #include "esp_flash.h"
 
 #include "wifi.h"
-#include "scan.h"
 #include "tcp_client.h"
 #include "control.h"
 

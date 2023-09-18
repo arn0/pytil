@@ -25,6 +25,8 @@ the command can be recognized.
 #include "pypi_comm.h"
 #include "crc.h"
 
+static const char *TAG = ">>> pypi_comm";
+
 pypi_packet pypi_rx_buffer[4];
 pypi_packet pypi_tx_buffer[4];
 

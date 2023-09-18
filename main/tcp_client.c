@@ -14,7 +14,7 @@
 
 volatile int sock = -1;
 
-static const char *TAG = "tcp_client():";
+static const char *TAG = ">>> tcp_client";
 
 
 void tcp_client(void)

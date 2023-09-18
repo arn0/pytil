@@ -16,7 +16,7 @@
 #include "tcp_client.h"
 #include "control.h"
 
-static const char *TAG = "main";
+static const char *TAG = ">>> main";
 
 
 void app_main( void ){

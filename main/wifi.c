@@ -23,6 +23,7 @@
 #define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_OPEN
 
 /* FreeRTOS event group to signal when we are connected*/
+
 static EventGroupHandle_t s_wifi_event_group;
 
 /* NOTE: Also create g_wifi_event_group once and only once. !!! */
@@ -147,33 +148,39 @@ static void print_cipher_type(int pairwise_cipher, int group_cipher)
     }
 }
 
-static void event_handler_start( void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data )
+static void event_handler_test( void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data )
 {
     if( event_base == WIFI_EVENT ) {
         switch( event_id ) {
             case WIFI_EVENT_WIFI_READY:           /**< WiFi ready */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_WIFI_READY" );
+                ESP_LOGI( "event_handler_test",  "WIFI_EVENT_WIFI_READY" );
             break;
             case WIFI_EVENT_SCAN_DONE:            /**< Finished scanning AP */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_SCAN_DONE" );
+                ESP_LOGI( "event_handler_test",  "WIFI_EVENT_SCAN_DONE" );
             break;
             case WIFI_EVENT_STA_START:            /**< Station start */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_STA_START" );
+                ESP_LOGI( "event_handler_test",  "WIFI_EVENT_STA_START" );
             break;
             case WIFI_EVENT_STA_STOP:             /**< Station stop */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_STA_STOP" );
+                ESP_LOGI( "event_handler_test",  "WIFI_EVENT_STA_STOP" );
             break;
             case WIFI_EVENT_STA_CONNECTED:        /**< Station connected to AP */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_STA_CONNECTED" );
+                ESP_LOGI( "event_handler_test",  "WIFI_EVENT_STA_CONNECTED" );
             break;
             case WIFI_EVENT_STA_DISCONNECTED:     /**< Station disconnected from AP */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_STA_DISCONNECTED" );
+                ESP_LOGI( "event_handler_test",  "WIFI_EVENT_STA_DISCONNECTED" );
             break;
             case WIFI_EVENT_STA_AUTHMODE_CHANGE:  /**< the auth mode of AP connected by device's station changed */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_STA_AUTHMODE_CHANGE" );
+                ESP_LOGI( "event_handler_test",  "WIFI_EVENT_STA_AUTHMODE_CHANGE" );
             break;
             default:
-                ESP_LOGI( "event_handler_start",  "event_id = %lx", event_id );
+                ESP_LOGI( "event_handler_test, WIFI_EVENT",  "event_id = %lx", event_id );
+            break;
+        }
+    } else if( event_base == IP_EVENT ){
+        switch( event_id ) {
+            default:
+                ESP_LOGI( "event_handler_test, IP_EVENT",  "event_id = %lx", event_id );
             break;
         }
     }
@@ -199,6 +206,20 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
+
+
+void wifi_start ( void ) {
+
+    s_wifi_event_group = xEventGroupCreate();
+    
+    ESP_ERROR_CHECK(esp_netif_init()); // Create an LwIP core task and initialize LwIP-related work
+    
+    ESP_ERROR_CHECK( esp_event_loop_create_default() );    
+    ESP_ERROR_CHECK( esp_netif_create_default_wifi_sta() );
+
+
+}
+
 
 
 /*

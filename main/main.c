@@ -47,13 +47,16 @@ if it does not need to store the configurations into persistent memory, or has i
 #define WIFI_INIT_OK BIT0
 #define WIFI_AP_FOUND BIT1
 #define WIFI_CONNECTED BIT2
-#define TCP_CONNECTED BIT3
-#define SERVO_CONNECTED BIT4
+#define TCP_SOCKET_OK BIT3
+#define TCP_CONNECTED BIT5
+#define SERVO_CONNECTED BIT5
 
     // main loop
     // here we make sure all that is needed is kept alive
     // ontherwise we perserve energy and sleep while waiting
     
+    status |= WIFI_AP_FOUND;  //debug
+
     while( true ){
     //    char buf[32];
     //    size_t len = 32;
@@ -65,31 +68,38 @@ if it does not need to store the configurations into persistent memory, or has i
                 status |= WIFI_INIT_OK;
             }
             ESP_LOGI(TAG, "Did wifi_init(), status = %x", status);
-            // Need to wait for wifi to start up ???
-            //vTaskDelay( 4000 );
+            // Rest is handled by event loop handlers
         }
-        else if( !( status & WIFI_AP_FOUND ) ){
-            ESP_LOGI(TAG, "Need wifi_scan(), status = %x", status);
-            esp_log_level_set( "*", ESP_LOG_INFO );
-            if( wifi_scan() ){
-                status |= WIFI_AP_FOUND;
-                ESP_LOGI(TAG, "WIFI_AP_FOUND, status = %x", status);
-            }
-            else {
+//        else if( !( status & WIFI_AP_FOUND ) ){
+//            ESP_LOGI(TAG, "Need wifi_scan(), status = %x", status);
+//            esp_log_level_set( "*", ESP_LOG_INFO );
+//            if( wifi_scan() ){
+//                status |= WIFI_AP_FOUND;
+//                ESP_LOGI(TAG, "WIFI_AP_FOUND, status = %x", status);
+//            }
+//            else {
                 // lets save some energy and go to sleep
-                ESP_LOGI(TAG, "Want to go to sleep, status = %x", status);
-            }
-        }
-        else if( !( status & WIFI_CONNECTED ) ){
-            ESP_LOGI(TAG, "Need wifi_connect(), status = %x", status);
-            if( wifi_connect() ){
-                status |= WIFI_CONNECTED;
-                ESP_LOGI(TAG, "WIFI_CONNECTED, status = %x", status);
-            }
-        }
-        else if( !( status & TCP_CONNECTED ) ){
-            ESP_LOGI(TAG, "Need tcp_client(), status = %x", status);
-            tcp_open();
-        }
+//                ESP_LOGI(TAG, "Want to go to sleep, status = %x", status);
+//            }
+//        }
+//        else if( !( status & WIFI_CONNECTED ) ){
+//            ESP_LOGI(TAG, "Need wifi_connect(), status = %x", status);
+//            if( wifi_connect() ){
+//                status |= WIFI_CONNECTED;
+//                ESP_LOGI(TAG, "WIFI_CONNECTED, status = %x", status);
+//            }
+//        }
+//        else if( !( status & TCP_SOCKET_OK ) ){
+//            ESP_LOGI(TAG, "Need socket, status = %x", status);
+//            if( tcp_get_socket() ) {
+//                status |= TCP_SOCKET_OK;
+//                ESP_LOGI(TAG, "TCP_SOCKET_OK, status = %x", status);
+//            }
+//        }
+//        else if( !( status & TCP_CONNECTED ) ){
+//            ESP_LOGI(TAG, "Need tcp_client(), status = %x", status);
+//            tcp_connect_sock();
+//        }
+        vTaskDelay( pdMS_TO_TICKS( 1000 ) );
     }
 }

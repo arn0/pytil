@@ -88,26 +88,44 @@ void tcp_client(void)
     vTaskDelete(NULL);
 }
 
-bool tcp_open( void ) {
-    char host_ip[] = SECRET_IP;
+bool tcp_get_socket( void ) {
 
-    struct sockaddr_in dest_addr;
-    inet_pton( AF_INET, host_ip, &dest_addr.sin_addr );
-    dest_addr.sin_family = AF_INET;
-    dest_addr.sin_port = htons( SECRET_PORT );
-
+    if( sock != -1 ) {
+        close( sock );
+    }
+    
     sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 
     if (sock < 0) {
         ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
         return( false );
     }
-    ESP_LOGI(TAG, "Socket created (%d), connecting to %d.%d.%d.%d:%d", sock, host_ip[0], host_ip[1], host_ip[2], host_ip[3], SECRET_PORT);
-    int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-    if (err != 0) {
-        ESP_LOGE(TAG, "Socket unable to connect: errno %d", errno);
+    ESP_LOGI(TAG, "Socket created: %d", sock);
+    return( true );
+}
+
+bool tcp_connect_sock( void ) {
+
+    if( sock > 0 ) {
+        struct sockaddr_in dest_addr;
+        char host_ip[] = SECRET_IP;
+        inet_pton( AF_INET, host_ip, &dest_addr.sin_addr );
+        dest_addr.sin_family = AF_INET;
+        dest_addr.sin_port = htons( SECRET_PORT );
+        ESP_LOGI(TAG, "Socket %d connecting to %d.%d.%d.%d:%d", sock, host_ip[0], host_ip[1], host_ip[2], host_ip[3], SECRET_PORT);
+        int err = connect(sock, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+        if (err == 0) {
+            ESP_LOGI(TAG, "Successfully connected");
+            return( true );
+        }
+        else {
+            ESP_LOGE(TAG, "Socket unable to connect: errno %d", errno);
+            close( sock );
+            return( false );
+        }
+    }
+    else {
+        ESP_LOGE( TAG, "No socket available, unable connect" );
         return( false );
     }
-    ESP_LOGI(TAG, "Successfully connected");
-    return( true );
 }

@@ -147,40 +147,59 @@ static void print_cipher_type(int pairwise_cipher, int group_cipher)
     }
 }
 
-static void event_handler_start( void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data )
+
+static void event_handler_wifi(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
+    const char *TAG = ">>> event_handler_wifi";
+
     if( event_base == WIFI_EVENT ) {
         switch( event_id ) {
             case WIFI_EVENT_WIFI_READY:           /**< WiFi ready */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_WIFI_READY" );
+                ESP_LOGI( TAG, "WIFI_EVENT_WIFI_READY" );
             break;
             case WIFI_EVENT_SCAN_DONE:            /**< Finished scanning AP */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_SCAN_DONE" );
+                ESP_LOGI( TAG, "WIFI_EVENT_SCAN_DONE" );
             break;
             case WIFI_EVENT_STA_START:            /**< Station start */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_STA_START" );
+                ESP_LOGI( TAG, "WIFI_EVENT_STA_START" );
+                esp_wifi_connect();
+                ESP_LOGI( TAG, "esp_wifi_connect() done" );
             break;
             case WIFI_EVENT_STA_STOP:             /**< Station stop */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_STA_STOP" );
+                ESP_LOGI( TAG, "WIFI_EVENT_STA_STOP" );
             break;
             case WIFI_EVENT_STA_CONNECTED:        /**< Station connected to AP */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_STA_CONNECTED" );
+                ESP_LOGI( TAG, "WIFI_EVENT_STA_CONNECTED" );
             break;
             case WIFI_EVENT_STA_DISCONNECTED:     /**< Station disconnected from AP */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_STA_DISCONNECTED" );
+                ESP_LOGI( TAG, "WIFI_EVENT_STA_DISCONNECTED" );
+                if( s_retry_num < EXAMPLE_ESP_MAXIMUM_RETRY ) {
+                    esp_wifi_connect();
+                    ESP_LOGI(TAG, "esp_wifi_connect() done, retry %d", s_retry_num );
+                    s_retry_num++;
+                } else {
+                    xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+                    ESP_LOGI(TAG,"xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT) done");
+                }
+                ESP_LOGI(TAG,"connect to the AP failed");
             break;
             case WIFI_EVENT_STA_AUTHMODE_CHANGE:  /**< the auth mode of AP connected by device's station changed */
-                ESP_LOGI( "event_handler_start",  "WIFI_EVENT_STA_AUTHMODE_CHANGE" );
+                ESP_LOGI( TAG, "WIFI_EVENT_STA_AUTHMODE_CHANGE" );
             break;
             default:
-                ESP_LOGI( "event_handler_start",  "event_id = %lx", event_id );
+                ESP_LOGI( TAG, "event_id = %lx", event_id );
             break;
         }
     }
+    else {
+            ESP_LOGI( TAG, "event_base = %s ", event_base );
+    }
 }
 
-static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
+static void event_handler_ip(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
+    const char *TAG = ">>> event_handler_ip";
+
     if( event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START ) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
@@ -197,6 +216,36 @@ static void event_handler(void* arg, esp_event_base_t event_base, int32_t event_
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    }
+
+    switch( event_id ) {
+        case IP_EVENT_STA_GOT_IP:               /*!< station got IP from connected AP */
+            ESP_LOGI( TAG, "IP_EVENT_STA_GOT_IP" );
+        break;
+        case IP_EVENT_STA_LOST_IP:              /*!< station lost IP and the IP is reset to 0 */
+            ESP_LOGI( TAG, "IP_EVENT_STA_LOST_IP" );
+        break;
+        case IP_EVENT_AP_STAIPASSIGNED:         /*!< soft-AP assign an IP to a connected station */
+            ESP_LOGI( TAG, "IP_EVENT_AP_STAIPASSIGNED" );
+        break;
+        case IP_EVENT_GOT_IP6:                  /*!< station or ap or ethernet interface v6IP addr is preferred */
+            ESP_LOGI( TAG, "IP_EVENT_GOT_IP6" );
+        break;
+        case IP_EVENT_ETH_GOT_IP:               /*!< ethernet got IP from connected AP */
+            ESP_LOGI( TAG, "IP_EVENT_ETH_GOT_IP" );
+        break;
+        case IP_EVENT_ETH_LOST_IP:              /*!< ethernet lost IP and the IP is reset to 0 */
+            ESP_LOGI( TAG, "IP_EVENT_ETH_LOST_IP" );
+        break;
+        case IP_EVENT_PPP_GOT_IP:               /*!< PPP interface got IP */
+            ESP_LOGI( TAG, "IP_EVENT_PPP_GOT_IP" );
+        break;
+        case IP_EVENT_PPP_LOST_IP:              /*!< PPP interface lost IP */
+            ESP_LOGI( TAG, "IP_EVENT_PPP_LOST_IP" );
+        break;
+        default:
+            ESP_LOGI( TAG, "event_id %ld", event_id );
+        break;
     }
 }
 
@@ -216,57 +265,76 @@ if it does not need to store the configurations into persistent memory, or has i
 
 /* Initialize Wi-Fi as sta */
 
-//esp_event_handler_instance_t instance_start;
+
+esp_event_handler_instance_t instance_wifi;
+esp_event_handler_instance_t instance_ip;
 
 bool wifi_init(void)
 {
     if( esp_netif_init() != ESP_OK ) return( false );   // Create an LwIP core task and initialize LwIP-related work
 
+    ESP_LOGI(TAG, "esp_netif_init() done");    
+
     ESP_ERROR_CHECK( esp_event_loop_create_default() );    
-    //ESP_ERROR_CHECK( esp_event_handler_instance_register( WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler_start, NULL, &instance_start) );
 
+    ESP_LOGI(TAG, "esp_event_loop_create_default() done");    
 
-    esp_event_handler_instance_t instance_any_id;
-    esp_event_handler_instance_t instance_got_ip;
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
                                                         ESP_EVENT_ANY_ID,
-                                                        &event_handler,
+                                                        &event_handler_wifi,
                                                         NULL,
-                                                        &instance_any_id));
+                                                        &instance_wifi));
     ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT,
                                                         IP_EVENT_STA_GOT_IP,
-                                                        &event_handler,
+                                                        &event_handler_ip,
                                                         NULL,
-                                                        &instance_got_ip));
+                                                        &instance_ip));
 
 
 
 
     esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
+
+    ESP_LOGI(TAG, "esp_netif_create_default_wifi_sta() done");    
+
     assert( sta_netif ); // find out why this is usefull
 
-    wifi_config_t conf;
-    esp_err_t ret;
-    ret = esp_wifi_get_config( ESP_IF_WIFI_STA, &conf );
-    if( ( ret == ESP_OK ) && strcmp( (char *) conf.sta.ssid, SECRET_SSID ) ) {
-        ESP_LOGI(TAG, "Wifi configuration already stored in flash partition called NVS");
-        ESP_LOGI(TAG, "%s" ,conf.sta.ssid);
-        ESP_LOGI(TAG, "%s" ,conf.sta.password);
-        return( true );
-    }
-    else
-    {
-        ESP_LOGI(TAG, "Wifi configuration not found in flash partition called NVS.");    
+    ESP_LOGI(TAG, "assert( sta_netif ) done");    
+
+//    wifi_config_t conf;
+//    esp_err_t ret;
+//    ret = esp_wifi_get_config( ESP_IF_WIFI_STA, &conf );
+//    ESP_LOGI(TAG, "Wifi configuration in NVS: %s, %s", conf.sta.ssid, conf.sta.password);
+//    if( ( ret == ESP_OK ) && strcmp( (char *) conf.sta.ssid, SECRET_SSID ) ) {
+//        ESP_LOGI(TAG, "Wifi configuration already stored in flash partition called NVS");
+//        ESP_LOGI(TAG, "%s" ,conf.sta.ssid);
+//        ESP_LOGI(TAG, "%s" ,conf.sta.password);
+//        return( true );
+//    }
+//    else
+//    {
+//        ESP_LOGI(TAG, "Wifi configuration not found in flash partition called NVS.");    
 
         wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     
         if( esp_wifi_init( &cfg ) != ESP_OK ) return( false );
+
+        ESP_LOGI(TAG, "esp_wifi_init( &cfg ) done");    
+
         if( esp_wifi_set_mode( WIFI_MODE_STA ) != ESP_OK ) return( false );
 
+        ESP_LOGI(TAG, "esp_wifi_set_mode( WIFI_MODE_STA ) done");    
+
         return( true );
-    }
-    return( false );
+//    }
+//    return( false );
 }
+
+// I (1603) wifi: Wifi configuration not found in flash partition called NVS.
+// I (1913) wifi:config NVS flash: enabled
+
+
+
 
 /* Initialize Wi-Fi as sta and set scan method */
 
@@ -305,8 +373,6 @@ bool wifi_connect( void ){
     s_wifi_event_group = xEventGroupCreate();
 
     //ESP_ERROR_CHECK( esp_event_handler_instance_unregister( WIFI_EVENT, ESP_EVENT_ANY_ID, &instance_start ) );
-
-
 
     wifi_config_t wifi_config = {
         .sta = {

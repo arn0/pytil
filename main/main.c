@@ -36,22 +36,33 @@ static const char *TAG = ">>> event_handler_wifi";
     if( event_base == WIFI_EVENT ) {
         switch( event_id ) {
             case WIFI_EVENT_WIFI_READY:           /**< WiFi ready */
-                ESP_LOGI( TAG,  "WIFI_EVENT_WIFI_READY" );
+                ESP_LOGI( TAG, "WIFI_EVENT_WIFI_READY" );
             break;
             case WIFI_EVENT_SCAN_DONE:            /**< Finished scanning AP */
-                ESP_LOGI( TAG,  "WIFI_EVENT_SCAN_DONE" );
+                ESP_LOGI( TAG, "WIFI_EVENT_SCAN_DONE" );
             break;
             case WIFI_EVENT_STA_START:            /**< Station start */
-                ESP_LOGI( TAG,  "WIFI_EVENT_STA_START" );
+                ESP_LOGI( TAG, "WIFI_EVENT_STA_START" );
+                esp_wifi_connect();
+                ESP_LOGI( TAG, "done esp_wifi_connect()" );
             break;
             case WIFI_EVENT_STA_STOP:             /**< Station stop */
-                ESP_LOGI( TAG,  "WIFI_EVENT_STA_STOP" );
+                ESP_LOGI( TAG, "WIFI_EVENT_STA_STOP" );
             break;
             case WIFI_EVENT_STA_CONNECTED:        /**< Station connected to AP */
-                ESP_LOGI( TAG,  "WIFI_EVENT_STA_CONNECTED" );
+                ESP_LOGI( TAG, "WIFI_EVENT_STA_CONNECTED" );
             break;
             case WIFI_EVENT_STA_DISCONNECTED:     /**< Station disconnected from AP */
-                ESP_LOGI( TAG,  "WIFI_EVENT_STA_DISCONNECTED" );
+                ESP_LOGI( TAG, "WIFI_EVENT_STA_DISCONNECTED" );
+                if (s_retry_num < ESP_MAXIMUM_RETRY) {
+                    esp_wifi_connect();
+                    ESP_LOGI( TAG, "done esp_wifi_connect(), retry %d", s_retry_num );
+                    s_retry_num++;
+                    ESP_LOGI( TAG, "retry to connect to the AP" );
+                } else {
+                    xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+                    ESP_LOGI(TAG,"connect to the AP failed");
+                }
             break;
             case WIFI_EVENT_STA_AUTHMODE_CHANGE:  /**< the auth mode of AP connected by device's station changed */
                 ESP_LOGI( TAG,  "WIFI_EVENT_STA_AUTHMODE_CHANGE" );
@@ -63,44 +74,42 @@ static const char *TAG = ">>> event_handler_wifi";
     else {
         ESP_LOGI( TAG,  "unknown event! event_base = %hhd event_id = %ld", *event_base, event_id );
     }
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        if (s_retry_num < ESP_MAXIMUM_RETRY) {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGI(TAG, "retry to connect to the AP");
-        } else {
-            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-        }
-        ESP_LOGI(TAG,"connect to the AP fail");
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
-        s_retry_num = 0;
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-    }
 }
 
-static void event_handler_ip(void* arg, esp_event_base_t event_base,
-                                int32_t event_id, void* event_data)
+static void event_handler_ip( void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        if (s_retry_num < ESP_MAXIMUM_RETRY) {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGI(TAG, "retry to connect to the AP");
-        } else {
-            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-        }
-        ESP_LOGI(TAG,"connect to the AP fail");
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+static const char *TAG = ">>> event_handler_ip";
+    switch( event_id ) {
+        case IP_EVENT_STA_GOT_IP:               /*!< station got IP from connected AP */
+            ip_event_got_ip_t* event = ( ip_event_got_ip_t* ) event_data;
+            ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR( &event->ip_info.ip ));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+            ESP_LOGI( TAG, "IP_EVENT_STA_GOT_IP" );
+        break;
+        case IP_EVENT_STA_LOST_IP:              /*!< station lost IP and the IP is reset to 0 */
+            ESP_LOGI( TAG, "IP_EVENT_STA_LOST_IP" );
+        break;
+        case IP_EVENT_AP_STAIPASSIGNED:         /*!< soft-AP assign an IP to a connected station */
+            ESP_LOGI( TAG, "IP_EVENT_AP_STAIPASSIGNED" );
+        break;
+        case IP_EVENT_GOT_IP6:                  /*!< station or ap or ethernet interface v6IP addr is preferred */
+            ESP_LOGI( TAG, "IP_EVENT_GOT_IP6" );
+        break;
+        case IP_EVENT_ETH_GOT_IP:               /*!< ethernet got IP from connected AP */
+            ESP_LOGI( TAG, "IP_EVENT_ETH_GOT_IP" );
+        break;
+        case IP_EVENT_ETH_LOST_IP:              /*!< ethernet lost IP and the IP is reset to 0 */
+            ESP_LOGI( TAG, "IP_EVENT_ETH_LOST_IP" );
+        break;
+        case IP_EVENT_PPP_GOT_IP:               /*!< PPP interface got IP */
+            ESP_LOGI( TAG, "IP_EVENT_PPP_GOT_IP" );
+        break;
+        case IP_EVENT_PPP_LOST_IP:              /*!< PPP interface lost IP */
+            ESP_LOGI( TAG, "IP_EVENT_PPP_LOST_IP" );
+        break;
+        default:
+            ESP_LOGI( TAG, "event_base = %hhd event_id %ld", *event_base, event_id );
     }
 }
 

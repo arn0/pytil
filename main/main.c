@@ -56,8 +56,12 @@ static const char *TAG = ">>> event_handler_wifi";
                 ESP_LOGI( TAG, "WIFI_EVENT_STA_DISCONNECTED" );
                 if (s_retry_num < ESP_MAXIMUM_RETRY) {
                     esp_wifi_connect();
-                    ESP_LOGI( TAG, "done esp_wifi_connect(), retry %d", s_retry_num );
                     s_retry_num++;
+                    ESP_LOGI( TAG, "done esp_wifi_connect(), retry %d", s_retry_num );
+                    if ( s_retry_num > 1 ) {
+                        ESP_LOGI( TAG, "delay by %d s, retry %d", s_retry_num * 4 + 4, s_retry_num );
+                        vTaskDelay( s_retry_num * 4000 + 4000 / portTICK_PERIOD_MS );
+                    }
                     ESP_LOGI( TAG, "retry to connect to the AP" );
                 } else {
                     xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
@@ -83,8 +87,8 @@ static const char *TAG = ">>> event_handler_ip";
         case IP_EVENT_STA_GOT_IP:               /*!< station got IP from connected AP */
             ip_event_got_ip_t* event = ( ip_event_got_ip_t* ) event_data;
             ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR( &event->ip_info.ip ));
-        s_retry_num = 0;
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+            s_retry_num = 0;
+            xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
             ESP_LOGI( TAG, "IP_EVENT_STA_GOT_IP" );
         break;
         case IP_EVENT_STA_LOST_IP:              /*!< station lost IP and the IP is reset to 0 */

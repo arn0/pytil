@@ -29,9 +29,40 @@ static const char *TAG = ">>> main";        // For debugging
 
 static int s_retry_num = 0;
 
-static void event_handler_wifi(void* arg, esp_event_base_t event_base,
-                                int32_t event_id, void* event_data)
+static void event_handler_wifi( void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
 {
+static const char *TAG = ">>> event_handler_wifi";
+
+    if( event_base == WIFI_EVENT ) {
+        switch( event_id ) {
+            case WIFI_EVENT_WIFI_READY:           /**< WiFi ready */
+                ESP_LOGI( TAG,  "WIFI_EVENT_WIFI_READY" );
+            break;
+            case WIFI_EVENT_SCAN_DONE:            /**< Finished scanning AP */
+                ESP_LOGI( TAG,  "WIFI_EVENT_SCAN_DONE" );
+            break;
+            case WIFI_EVENT_STA_START:            /**< Station start */
+                ESP_LOGI( TAG,  "WIFI_EVENT_STA_START" );
+            break;
+            case WIFI_EVENT_STA_STOP:             /**< Station stop */
+                ESP_LOGI( TAG,  "WIFI_EVENT_STA_STOP" );
+            break;
+            case WIFI_EVENT_STA_CONNECTED:        /**< Station connected to AP */
+                ESP_LOGI( TAG,  "WIFI_EVENT_STA_CONNECTED" );
+            break;
+            case WIFI_EVENT_STA_DISCONNECTED:     /**< Station disconnected from AP */
+                ESP_LOGI( TAG,  "WIFI_EVENT_STA_DISCONNECTED" );
+            break;
+            case WIFI_EVENT_STA_AUTHMODE_CHANGE:  /**< the auth mode of AP connected by device's station changed */
+                ESP_LOGI( TAG,  "WIFI_EVENT_STA_AUTHMODE_CHANGE" );
+            break;
+            default:
+                ESP_LOGI( TAG,  "event_id = %lx", event_id );
+        }
+    }
+    else {
+        ESP_LOGI( TAG,  "unknown event! event_base = %hhd event_id = %ld", *event_base, event_id );
+    }
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {

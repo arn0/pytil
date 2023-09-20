@@ -9,9 +9,9 @@
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
-#include "esp_transport.h"
-#include "esp_transport_tcp.h"
 
+#include "pi_transport.h"
+#include "pi_control.h"
 
 #include "../../secret.h"
 
@@ -173,60 +173,25 @@ void wifi_init_sta(void)
     }
 }
 
-static const char *payload = "Message from ESP32\n";
 
 
-static void tcp_transport_client_task(void *pvParameters)
-{
-    static const char *TAG = ">>> tcp_transport_client_task";
-    char rx_buffer[128];
-    char host_ip[] = SECRET_IP;
-    esp_transport_handle_t transport = esp_transport_tcp_init();
-
-    while (1) {
-        if (transport == NULL) {
-            ESP_LOGE(TAG, "Error occurred during esp_transport_proxy_init()");
-            break;
-        }
-        int err = esp_transport_connect(transport, SECRET_IP, SECRET_PORT, -1);
-        if (err != 0) {
-            ESP_LOGE(TAG, "Client unable to connect: errno %d", errno);
-            break;
-        }
-        ESP_LOGI(TAG, "Successfully connected");
-
-        while (1) {
-            int bytes_written = esp_transport_write(transport, payload, strlen(payload), 0);
-            if (bytes_written < 0) {
-                ESP_LOGE(TAG, "Error occurred during sending: esp_transport_write() returned %d, errno %d", bytes_written, errno);
-                break;
-            }
-            int len = esp_transport_read(transport, rx_buffer, sizeof(rx_buffer) - 1, 0);
-            // Error occurred during receiving
-            if (len < 0) {
-                ESP_LOGE(TAG, "recv failed: esp_transport_read() returned %d, errno %d", len, errno);
-                break;
-            }
-            // Data received
-            rx_buffer[len] = 0; // Null-terminate whatever we received and treat like a string
-            ESP_LOGI(TAG, "Received %d bytes from %s:", len, host_ip);
-            ESP_LOGI(TAG, "Received data : %s", rx_buffer);
-
-            vTaskDelay(2000 / portTICK_PERIOD_MS);
-        }
-
-        ESP_LOGE(TAG, "Shutting down transport and restarting...");
-        esp_transport_close(transport);
-    }
-    esp_transport_destroy(transport);
-
-  vTaskDelete(NULL);
-}
 
 
+
+
+
+
+
+
+
+
+
+enum status { BOOT, WIFI_WAIT, WIFI_OK, WIFI_FAIL, TCP_WAIT, TCP_OK, TCP_FAIL, SERVO_OK, SERVO_FAIL};
 
 void app_main(void)
 {
+    esp_log_level_set( TAG, ESP_LOG_INFO );
+
     //Initialize NVS
     esp_err_t ret = nvs_flash_init();
     if ( ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND ) {
@@ -237,8 +202,55 @@ void app_main(void)
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
 
-    vTaskDelay( 5000 / portTICK_PERIOD_MS );
+    uint8_t status = BOOT;
+    
+    while( true ) {
+        switch( status ) {
+            case BOOT:
+                ESP_LOGI(TAG, "waiting for eventbits");
+                EventBits_t bits = xEventGroupWaitBits( s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE, pdFALSE, portMAX_DELAY );
 
-    xTaskCreate(tcp_transport_client_task, "tcp_transport_client", 4096, NULL, 5, NULL);
+                if ( bits & WIFI_CONNECTED_BIT ) {
+                    status = WIFI_OK;
+                    ESP_LOGI( TAG, "connected to ap SSID:%s", SECRET_SSID );
+                } else if ( bits & WIFI_FAIL_BIT ) {
+                    ESP_LOGI( TAG, "Failed to connect to SSID:%s, password:%s", SECRET_SSID, SECRET_PASS );
+                } else {
+                    ESP_LOGE( TAG, "UNEXPECTED EVENT");
+                }
+            break;
+            case WIFI_OK:
+                    ESP_LOGI(TAG, "start tcp_transport_client_task");
+                    status = TCP_WAIT;
+                    xTaskCreate(tcp_transport_client_task, "tcp_transport_client", 4096, NULL, 5, NULL);
+            break;
+            case WIFI_FAIL:
+            break;
+            case TCP_OK:
+            break;
+            case TCP_FAIL:
+            break;
+            case SERVO_OK:
+            break;
+            case SERVO_FAIL:
+            break;
+            default:
+        }
 
+
+
+
+
+
+    }
+
+
+
+
+
+    vTaskDelay( 100 / portTICK_PERIOD_MS );
+
+    
+
+    //xTaskCreate(control_loop, "control_loop", 4096, NULL, 5, NULL);
 }

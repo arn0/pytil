@@ -20,10 +20,6 @@
 
 #include "../../secret.h"
 
-#ifdef CONFIG_EXAMPLE_ENABLE_PROXY
-//#define PROXY_ADDR CONFIG_EXAMPLE_PROXY_ADDR
-//#define PROXY_PORT CONFIG_EXAMPLE_PROXY_PORT
-#endif
 
 static const char *TAG = "tcp_transport_client";
 static const char *payload = "Message from ESP32\n";
@@ -33,19 +29,6 @@ void tcp_transport_client_task(void *pvParameters)
     char rx_buffer[128];
     char host_ip[] = SECRET_ADDR;
     esp_transport_handle_t transport = esp_transport_tcp_init();
-
-    #ifdef CONFIG_EXAMPLE_ENABLE_PROXY
-    /*
-     * The socks transport is a composed transport, so we save the previously created
-     * handler to use it as a parent transport, so our transport is now socks over tcp.
-     * We could have used the ssl transport as parent and we can use a socks transport as a
-     * parent to websocket transport.
-     *
-     */
-    esp_transport_handle_t parent = transport;
-    esp_transport_socks_proxy_config_t proxy_config = {.port = PROXY_PORT, .address = PROXY_ADDR, .version = SOCKS4};
-    transport = esp_transport_socks_proxy_init(parent, &proxy_config);
-    #endif
 
   while (1) {
         if (transport == NULL) {
@@ -83,10 +66,6 @@ void tcp_transport_client_task(void *pvParameters)
         esp_transport_close(transport);
     }
     esp_transport_destroy(transport);
-
-    #ifdef CONFIG_EXAMPLE_ENABLE_PROXY
-    esp_transport_destroy(parent);
-    #endif
 
   vTaskDelete(NULL);
 }

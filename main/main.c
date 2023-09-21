@@ -6,6 +6,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "esp_netif_sntp.h"
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
@@ -178,7 +179,9 @@ static const char *payload = "Message from ESP32\n";
 
 static void tcp_transport_client_task(void *pvParameters)
 {
-    static const char *TAG = ">>> tcp_transport_client_task";
+
+
+    static const char* TAG = ">>> tcp";
     char rx_buffer[128];
     char host_ip[] = SECRET_IP;
     esp_transport_handle_t transport = esp_transport_tcp_init();
@@ -192,6 +195,7 @@ static void tcp_transport_client_task(void *pvParameters)
         if (err != 0) {
             ESP_LOGE(TAG, "Client unable to connect: errno %d", errno);
             break;
+            ESP_LOGE(TAG, "Below break");
         }
         ESP_LOGI(TAG, "Successfully connected");
 
@@ -218,9 +222,11 @@ static void tcp_transport_client_task(void *pvParameters)
         ESP_LOGE(TAG, "Shutting down transport and restarting...");
         esp_transport_close(transport);
     }
+    ESP_LOGE(TAG, "Exit first while(1)");
     esp_transport_destroy(transport);
 
-  vTaskDelete(NULL);
+    ESP_LOGE(TAG, "At vTaskDelete");
+    vTaskDelete(NULL);
 }
 
 
@@ -239,6 +245,13 @@ void app_main(void)
 
     vTaskDelay( 5000 / portTICK_PERIOD_MS );
 
+    esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG( SECRET_IP );
+    esp_netif_sntp_init( &config );
+    if (esp_netif_sntp_sync_wait(pdMS_TO_TICKS(10000)) != ESP_OK) {
+        printf("Failed to update system time within 10s timeout/n");
+}
+
     xTaskCreate(tcp_transport_client_task, "tcp_transport_client", 4096, NULL, 5, NULL);
 
+    vTaskDelay( 10000 / portTICK_PERIOD_MS );
 }

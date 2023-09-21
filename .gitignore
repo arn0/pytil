@@ -1,4 +1,5 @@
 .vscode/
+main/pytil.code-workspace
 build/
 sdkconfig
 sdkconfig.old

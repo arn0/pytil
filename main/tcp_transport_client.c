@@ -18,12 +18,11 @@
 #include "esp_transport_tcp.h"
 #include "esp_transport_socks_proxy.h"
 
-#define TARGET_ADDR CONFIG_EXAMPLE_TARGET_ADDR
-#define TARGET_PORT CONFIG_EXAMPLE_TARGET_PORT
+#include "../../secret.h"
 
 #ifdef CONFIG_EXAMPLE_ENABLE_PROXY
-#define PROXY_ADDR CONFIG_EXAMPLE_PROXY_ADDR
-#define PROXY_PORT CONFIG_EXAMPLE_PROXY_PORT
+//#define PROXY_ADDR CONFIG_EXAMPLE_PROXY_ADDR
+//#define PROXY_PORT CONFIG_EXAMPLE_PROXY_PORT
 #endif
 
 static const char *TAG = "tcp_transport_client";
@@ -32,7 +31,7 @@ static const char *payload = "Message from ESP32\n";
 void tcp_transport_client_task(void *pvParameters)
 {
     char rx_buffer[128];
-    char host_ip[] = TARGET_ADDR;
+    char host_ip[] = SECRET_ADDR;
     esp_transport_handle_t transport = esp_transport_tcp_init();
 
     #ifdef CONFIG_EXAMPLE_ENABLE_PROXY
@@ -53,7 +52,7 @@ void tcp_transport_client_task(void *pvParameters)
             ESP_LOGE(TAG, "Error occurred during esp_transport_proxy_init()");
             break;
         }
-        int err = esp_transport_connect(transport, TARGET_ADDR, TARGET_PORT, -1);
+        int err = esp_transport_connect( transport, SECRET_ADDR, SECRET_PORT, -1 );
         if (err != 0) {
             ESP_LOGE(TAG, "Client unable to connect: errno %d", errno);
             break;

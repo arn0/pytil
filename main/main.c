@@ -4,9 +4,12 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
+#include "esp_netif_sntp.h"
+
 #include "protocol_examples_common.h"
 
 #include "tcp_transport_client.h"
+#include "../../secret.h"
 
 
 void app_main(void)
@@ -25,5 +28,10 @@ void app_main(void)
      */
     ESP_ERROR_CHECK(example_connect());
 
+    esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG( SECRET_ADDR );
+    esp_netif_sntp_init( &config );
+    if (esp_netif_sntp_sync_wait(pdMS_TO_TICKS(10000)) != ESP_OK) {
+        printf("Failed to update system time within 10s timeout/n");
+    }
     xTaskCreate(tcp_transport_client_task, "tcp_transport_client", 4096, NULL, 5, NULL);
 }
